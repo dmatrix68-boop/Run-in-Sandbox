@@ -114,6 +114,7 @@ Write-Progress -Activity $Progress_Activity -PercentComplete 45
 if ($Add_ISO -eq $True) {
     Add-RegItem -Sub_Reg_Path "Windows.IsoFile" -Type "ISO" -Key_Label "Extract ISO file in Sandbox"
     Add-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path ".iso" -Type "ISO" -Key_Label "Extract ISO file in Sandbox"
+    Add-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path ".img" -Type "ISO" -Key_Label "Extract IMG file in Sandbox"
 }
 Write-Progress -Activity $Progress_Activity -PercentComplete 50
 

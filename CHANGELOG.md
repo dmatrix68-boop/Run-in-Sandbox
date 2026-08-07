@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 2026-08-07
+### Added
+- Added .img file to "Run X in Sandbox"-options
+
+
 ## 2026-05-13
 ### Fixed
 - Fixed `Add_Structure.ps1` not adding the ps1 context menu when the UserChoice ProgID has no `Shell` subkey in HKCR (e.g. after removing PowerShell ISE the gate `Test-Path "$HKCR_UserChoice_Key\Shell"` returned `$False` and the menu was silently skipped). The cascade is now written to `HKCU\Software\Classes\<ProgID>\Shell` so the menu shows up via the merged HKCR view even without a machine-wide entry, and the whole block is wrapped in try/catch with a null guard on the UserChoice ProgID. Fixes [#20]https://github.com/Joly0/Run-in-Sandbox/issues/20
