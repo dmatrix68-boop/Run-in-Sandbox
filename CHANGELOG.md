@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the registry backup never being written: `Export-RegConfig` returned before exporting anything and used a fixed size array for the already exported keys
 - Fixed the ZIP context menu missing when another application (7-Zip, PeaZip, WinZip, ...) is registered as default for .zip files, by also adding the entry to the ProgID from the users file association
 - Fixed leftover registry keys when uninstalling (`SystemFileAssociations\.7z` and the ProgID of the default .zip application)
+- HTML/URL: the command was built with the already quoted path inside single quotes (`-Path '"C:\..."'`), so `Invoke-Item` never found the file
+- HTML: the entry was added to `SystemFileAssociations\.html` *and* to the browser ProgIDs (MSEdgeHTM, ChromeHTML, IE.AssocFile.HTM), which shows it twice for Edge/Chrome users. Only `SystemFileAssociations` is used now, `.htm` and `.url` are covered as well
+- PS1 with parameters and VBS with parameters: the script path was passed unquoted and broke as soon as a folder or file name contained a space
+- EXE with switches: `EXE_Install.ps1` called `Invoke-Expression` with an unquoted executable, which failed for file names containing spaces
+- App bundles (.sdbapp): the bundle was copied under its original name while `AppBundle_Install.ps1` always reads `App_Bundle.sdbapp`, and every application folder was mapped to `C:\SBDApp` instead of `C:\SBDApp\<folder name>` (wrong paths, and a collision for bundles with more than one folder)
+- MSIX: only the first ProgID of `OpenWithProgids` was used, several ProgIDs ended up as one invalid registry key
+- Folders: a left over `OriginalCommand.txt` of a previous run was executed again when sharing a folder (the folder types pass no command)
+- Files in folders containing `[` or `]`: the folder name was taken from the wildcard escaped path and contained backticks, so the file could not be found inside the sandbox
+- Uninstall: `.intunewin` was removed under the wrong path, the HTML entries were not removed at all
 ### Added
 - `RunInSandbox.ps1` now writes a log to `%TEMP%\RunInSandbox.log` and shows a message box on errors, instead of failing silently because it is started with `-WindowStyle Hidden`
 - Unsupported/unknown `-Type` values and a missing .wsb file are reported instead of silently doing nothing

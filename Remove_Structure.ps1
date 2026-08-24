@@ -64,6 +64,10 @@ if ($Add_Folder -eq $True) {
 }
 
 if ($Add_HTML -eq $True) {
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.html" -Type "HTML" -Key_Label "Run this web link in Sandbox"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.htm" -Type "HTML" -Key_Label "Run this web link in Sandbox"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.url" -Type "HTML" -Key_Label "Run this URL in Sandbox"
+    # ProgID entries of older versions
     Remove-RegItem -Sub_Reg_Path "MSEdgeHTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
     Remove-RegItem -Sub_Reg_Path "ChromeHTML" -Type "HTML" -Key_Label "Run this web link in Sandbox"
     Remove-RegItem -Sub_Reg_Path "IE.AssocFile.HTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
@@ -71,7 +75,7 @@ if ($Add_HTML -eq $True) {
 }
 
 if ($Add_Intunewin -eq $True) {
-    Remove-RegItem -Sub_Reg_Path ".intunewin" -Type "Intunewin"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.intunewin" -Type "Intunewin"
 }
 
 if ($Add_ISO -eq $True) {
@@ -87,15 +91,15 @@ if ($Add_MSIX -eq $True) {
     $MSIX_Shell_Registry_Key = "Registry::HKEY_CLASSES_ROOT\.msix\OpenWithProgids"
     if (Test-Path -Path $MSIX_Shell_Registry_Key) {
         $Get_Default_Value = (Get-Item -Path $MSIX_Shell_Registry_Key).Property
-        if ($Get_Default_Value) {
-            Remove-RegItem -Sub_Reg_Path "$Get_Default_Value" -Type "MSIX"
-        } 
+        ForEach ($Prop in $Get_Default_Value) {
+            Remove-RegItem -Sub_Reg_Path "$Prop" -Type "MSIX"
+        }
     }
-    $Default_MSIX_HKCU = "$HKCU_Classes\.msix"
+    $Default_MSIX_HKCU = "$HKCU_Classes\.msix\OpenWithProgids"
     if (Test-Path -Path $Default_MSIX_HKCU) {
-        $Get_Default_Value = (Get-Item -Path "$Default_MSIX_HKCU\OpenWithProgids").Property
-        if ($Get_Default_Value) {
-            Remove-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$Get_Default_Value" -Type "MSIX"
+        $Get_Default_Value = (Get-Item -Path $Default_MSIX_HKCU).Property
+        ForEach ($Prop in $Get_Default_Value) {
+            Remove-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$Prop" -Type "MSIX"
         }
     } 
 }

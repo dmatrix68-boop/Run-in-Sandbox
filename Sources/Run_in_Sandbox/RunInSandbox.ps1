@@ -60,8 +60,10 @@ $ScriptPath = [WildcardPattern]::Escape($ScriptPath)
 if ( ($Type -eq "Folder_Inside") -or ($Type -eq "Folder_On") ) {
     $DirectoryName = (Get-Item $ScriptPath).fullname
 } else {
-    $FolderPath = Split-Path (Split-Path "$ScriptPath" -Parent) -Leaf
     $DirectoryName = (Get-Item $ScriptPath).DirectoryName
+    # Has to be taken from the resolved path, $ScriptPath is wildcard escaped and would
+    # add backticks to folder names containing "[" or "]", which then do not exist in the sandbox
+    $FolderPath = Split-Path $DirectoryName -Leaf
     $FileName = (Get-Item $ScriptPath).BaseName
     $Full_FileName = (Get-Item $ScriptPath).Name
 }
@@ -130,10 +132,13 @@ function Enable-StartupScripts {
     $StartupScriptsFolder = Join-Path $Run_in_Sandbox_Folder $StartupScriptFolderName
     New-Item -ItemType Directory -Path $StartupScriptsFolder -Force | Out-Null
     
+    $origCmdFile = Join-Path $StartupScriptsFolder "OriginalCommand.txt"
     if ($OriginalCommand -ne "") {
        # Write the original command into a file
-        $origCmdFile = Join-Path $StartupScriptsFolder "OriginalCommand.txt"
         Set-Content -LiteralPath $origCmdFile -Value $OriginalCommand -Encoding UTF8 -Force 
+    } else {
+        # Nothing to run, make sure the command of a previous run is not executed again
+        Remove-Item -LiteralPath $origCmdFile -Force -ErrorAction SilentlyContinue
     }
 
     # Orchestrator that runs NN-*.ps1 in lexicographic order, then runs the original command
@@ -298,15 +303,24 @@ function New-WSB {
 
     if ($Type -eq "SDBApp") {
         $SDB_Full_Path = $ScriptPath
-        Copy-Item $ScriptPath $Run_in_Sandbox_Folder -Force
+        # AppBundle_Install.ps1 reads the bundle as "App_Bundle.sdbapp", so it has to be
+        # copied under that name, no matter how the file the user picked is called
+        Copy-Item $ScriptPath "$Run_in_Sandbox_Folder\App_Bundle.sdbapp" -Force
         $Get_Apps_to_install = [xml](Get-Content $SDB_Full_Path)
         $Apps_to_install_path = $Get_Apps_to_install.Applications.Application.Path | Select-Object -Unique
 
         ForEach ($App_Path in $Apps_to_install_path) {
+            if ( [string]::IsNullOrEmpty($App_Path) ) {
+                continue
+            }
+            # Every application folder gets its own folder below C:\SBDApp. Mapping all of them
+            # to C:\SBDApp would collide as soon as a bundle contains more than one folder and
+            # AppBundle_Install.ps1 looks for the files in C:\SBDApp\<name of the host folder>
+            $App_Folder_Name = Split-Path $App_Path -Leaf
             Get-ChildItem -Path $App_Path -Recurse | Unblock-File
             Add-Content -LiteralPath $Sandbox_File_Path -Value "        <MappedFolder>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "            <HostFolder>$App_Path</HostFolder>"
-            Add-Content -LiteralPath $Sandbox_File_Path -Value "            <SandboxFolder>C:\SBDApp</SandboxFolder>"
+            Add-Content -LiteralPath $Sandbox_File_Path -Value "            <SandboxFolder>C:\SBDApp\$App_Folder_Name</SandboxFolder>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "            <ReadOnly>$Sandbox_ReadOnlyAccess</ReadOnly>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "        </MappedFolder>"
         }
@@ -428,7 +442,7 @@ switch ($Type) {
         New-WSB -Command_to_Run $Startup_Command
     }
     "HTML" {
-        $Script:Startup_Command = $PSRun_Command + " " + "`"Invoke-Item -Path `'$Full_Startup_Path_Quoted`'`""
+        $Script:Startup_Command = $PSRun_Command + " " + "`"Invoke-Item -Path `'$Full_Startup_Path`'`""
         
         $Startup_Command = Enable-StartupScripts -OriginalCommand $Startup_Command
         New-WSB -Command_to_Run $Startup_Command
@@ -607,13 +621,13 @@ switch ($Type) {
 
         $add_parameters.add_click({
                 $Script:Paramaters = $parameters_to_add.Text.ToString()
-                $Script:Startup_Command = $PSRun_File + " " + "$Full_Startup_Path_UnQuoted" + " " + "$Paramaters"
+                $Script:Startup_Command = $PSRun_File + " " + "`"$Full_Startup_Path_UnQuoted`"" + " " + "$Paramaters"
                 $Form_PS1.close()
             })
 
         $Form_PS1.Add_Closing({
                 $Script:Paramaters = $parameters_to_add.Text.ToString()
-                $Script:Startup_Command = $PSRun_File + " " + "$Full_Startup_Path_UnQuoted" + " " + "$Paramaters"
+                $Script:Startup_Command = $PSRun_File + " " + "`"$Full_Startup_Path_UnQuoted`"" + " " + "$Paramaters"
             })
 
         $Form_PS1.ShowDialog() | Out-Null
@@ -661,13 +675,13 @@ switch ($Type) {
 
         $add_parameters.add_click({
                 $Script:Paramaters = $parameters_to_add.Text.ToString()
-                $Script:Startup_Command = "wscript.exe $Full_Startup_Path_UnQuoted $Paramaters"
+                $Script:Startup_Command = "wscript.exe `"$Full_Startup_Path_UnQuoted`" $Paramaters"
                 $Form_VBS.close()
             })
 
         $Form_VBS.Add_Closing({
                 $Script:Paramaters = $parameters_to_add.Text.ToString()
-                $Script:Startup_Command = "wscript.exe $Full_Startup_Path_UnQuoted $Paramaters"
+                $Script:Startup_Command = "wscript.exe `"$Full_Startup_Path_UnQuoted`" $Paramaters"
             })
 
         $Form_VBS.ShowDialog() | Out-Null
