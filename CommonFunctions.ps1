@@ -9,7 +9,7 @@ $HKCU = "Registry::HKEY_USERS\$Current_User_SID"
 $HKCU_Classes = "Registry::HKEY_USERS\$Current_User_SID" + "_Classes"
 $Sandbox_Icon = "$env:ProgramData\Run_in_Sandbox\sandbox.ico"
 $Sources = $Current_Folder + "\" + "Sources\*"
-$Exported_Keys = @()
+$Exported_Keys = [System.Collections.ArrayList]@()
 
 [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
 
@@ -41,11 +41,11 @@ function Export-RegConfig {
         [string] $Sub_Reg_Path
     )
     
+    # Every key only has to be exported once, before it is modified for the first time
     if ($Exported_Keys -contains $Reg_Path) {
-        $Exported_Keys.Add($Reg_Path)
-    } else {
         return
     }
+    [void]$Exported_Keys.Add($Reg_Path)
     
     if (-not (Test-Path $Backup_Folder) ) {
         New-Item -ItemType Directory -Path $Backup_Folder -Force | Out-Null

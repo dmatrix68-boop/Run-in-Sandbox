@@ -3,6 +3,44 @@
     [Parameter(Mandatory=$true)] [String]$ScriptPath
 )
 
+# ------------------------------------------------------------------------------------
+# Logging and error handling
+# The context menu starts this script with "powershell.exe -WindowStyle Hidden", so any
+# terminating error would kill the script without the user noticing anything at all.
+# Everything is written to a log file and unexpected errors are shown in a message box.
+# ------------------------------------------------------------------------------------
+$Run_Log_File = Join-Path -Path $env:TEMP -ChildPath "RunInSandbox.log"
+
+function Write-RunLog {
+    param (
+        [string]$Message,
+        [string]$Message_Type = "INFO"
+    )
+
+    $MyDate = "[{0:MM/dd/yy} {0:HH:mm:ss}]" -f (Get-Date)
+    Add-Content -Path $Run_Log_File -Value "$MyDate - $Message_Type : $Message" -ErrorAction SilentlyContinue
+}
+
+function Show-RunError {
+    param (
+        [string]$Message
+    )
+
+    Write-RunLog -Message_Type "ERROR" -Message $Message
+    try {
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("$Message`n`nMore details can be found in `"$Run_Log_File`"", "Run in Sandbox", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+    } catch {}
+}
+
+trap {
+    Show-RunError -Message "Run in Sandbox stopped with an error: $($_.Exception.Message)"
+    Write-RunLog -Message_Type "ERROR" -Message "$($_.ScriptStackTrace)"
+    exit 1
+}
+
+Write-RunLog -Message_Type "INFO" -Message "Started for type `"$Type`" and path `"$ScriptPath`""
+
 #Start-Transcript -Path $(Join-Path -Path $([System.Environment]::GetEnvironmentVariables('Machine').TEMP) -ChildPath "RunInSandbox.log")
 
 $special_char_array = 'é', 'è', 'à', 'â', 'ê', 'û', 'î', 'ä', 'ë', 'ü', 'ï', 'ö', 'ù', 'ò', '~', '!', '@', '#', '$', '%', '^', '&', '+', '=', '}', '{', '|', '<', '>', ';'
@@ -229,7 +267,14 @@ function New-WSB {
     )
     
     # Prepare Notepad payload
-    $np = Add-NotepadToSandbox -EnforceEnUsFallback
+    # This is an optional convenience only, it must never stop the sandbox from starting.
+    # Add-NotepadToSandbox throws when notepad.exe or its .mui file cannot be found,
+    # which is the case on systems where the classic Notepad has been removed.
+    try {
+        Add-NotepadToSandbox -EnforceEnUsFallback | Out-Null
+    } catch {
+        Write-RunLog -Message_Type "WARNING" -Message "Notepad could not be prepared for the sandbox: $($_.Exception.Message)"
+    }
     
     New-Item $Sandbox_File_Path -type file -Force | Out-Null
     Add-Content -LiteralPath $Sandbox_File_Path -Value "<Configuration>"
@@ -636,8 +681,18 @@ switch ($Type) {
         $Startup_Command = Enable-StartupScripts -OriginalCommand $Startup_Command
         New-WSB -Command_to_Run $Startup_Command
     }
+    default {
+        Show-RunError -Message "The type `"$Type`" is not supported, nothing can be started in the sandbox."
+        exit 1
+    }
 }
 
+if (-not (Test-Path -LiteralPath $Sandbox_File_Path) ) {
+    Show-RunError -Message "No sandbox configuration file has been created for type `"$Type`", the sandbox cannot be started."
+    exit 1
+}
+
+Write-RunLog -Message_Type "INFO" -Message "Starting the sandbox with `"$Sandbox_File_Path`""
 Start-Process -FilePath $Sandbox_File_Path -Wait
 do {
     Start-Sleep -Seconds 1

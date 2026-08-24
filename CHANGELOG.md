@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2026-08-24
+### Fixed
+- Fixed context menu entries doing nothing at all (no sandbox, no error): `Add-NotepadToSandbox` throws when `notepad.exe` or its `.mui` file cannot be found (e.g. when the classic Notepad has been removed), which aborted `RunInSandbox.ps1` before the .wsb file was even written. Preparing Notepad is optional now and only logs a warning
+- Fixed the registry backup never being written: `Export-RegConfig` returned before exporting anything and used a fixed size array for the already exported keys
+- Fixed the ZIP context menu missing when another application (7-Zip, PeaZip, WinZip, ...) is registered as default for .zip files, by also adding the entry to the ProgID from the users file association
+- Fixed leftover registry keys when uninstalling (`SystemFileAssociations\.7z` and the ProgID of the default .zip application)
+### Added
+- `RunInSandbox.ps1` now writes a log to `%TEMP%\RunInSandbox.log` and shows a message box on errors, instead of failing silently because it is started with `-WindowStyle Hidden`
+- Unsupported/unknown `-Type` values and a missing .wsb file are reported instead of silently doing nothing
+
 ## 2025-10-07
 ### Added
 - Added HTML file association when other browsers (instead of chrome or edge) are default

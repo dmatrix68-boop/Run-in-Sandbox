@@ -203,6 +203,19 @@ if ($Add_ZIP -eq $True) {
     if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\WinRAR.ZIP") {
         Add-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
     }
+
+    # Run on ZIP if another application (7-Zip, PeaZip, WinZip, ...) is the default for .zip
+    # Explorer only shows the entries of the ProgID a file is really associated with,
+    # so the entry has to be added to that ProgID as well
+    # The userchoice for ZIP is located in: HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice
+    $ZIP_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice"
+    if (Test-Path -Path $ZIP_UserChoice) {
+        $Get_ZIP_UserChoice = (Get-ItemProperty -Path $ZIP_UserChoice).ProgID
+        if ( (-not [string]::IsNullOrEmpty($Get_ZIP_UserChoice)) -and ($Get_ZIP_UserChoice -notin @("CompressedFolder", "WinRAR.ZIP")) ) {
+            Write-LogMessage -Message_Type "INFO" -Message "Default application for .zip uses the ProgID `"$Get_ZIP_UserChoice`""
+            Add-RegItem -Sub_Reg_Path "$Get_ZIP_UserChoice" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
+        }
+    }
     
     # Run on 7z
     if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\Applications\7zFM.exe") {

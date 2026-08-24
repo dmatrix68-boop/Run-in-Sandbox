@@ -158,8 +158,16 @@ if ($Add_VBS -eq $True) {
 if ($Add_ZIP -eq $True) {
     Remove-RegItem -Sub_Reg_Path "CompressedFolder" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
     Remove-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
+    $ZIP_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice"
+    if (Test-Path -Path $ZIP_UserChoice) {
+        $Get_ZIP_UserChoice = (Get-ItemProperty -Path $ZIP_UserChoice).ProgID
+        if ( (-not [string]::IsNullOrEmpty($Get_ZIP_UserChoice)) -and ($Get_ZIP_UserChoice -notin @("CompressedFolder", "WinRAR.ZIP")) ) {
+            Remove-RegItem -Sub_Reg_Path "$Get_ZIP_UserChoice" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
+        }
+    }
     Remove-RegItem -Sub_Reg_Path "Applications\7zFM.exe" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
     Remove-RegItem -Sub_Reg_Path "7-Zip.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
     Remove-RegItem -Sub_Reg_Path "7-Zip.rar" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract RAR file in Sandbox"
 }
 
