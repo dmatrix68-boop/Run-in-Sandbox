@@ -212,8 +212,13 @@ function Add-NotepadToSandbox {
 
     # Resolve a single notepad.exe (prefer System32)
     $exeCandidates = Get-Command notepad.exe -ErrorAction Stop | Select-Object -ExpandProperty Source
+    # The app execution alias in WindowsApps is a 0 byte reparse point, copying it is useless
+    $exeCandidates = $exeCandidates | Where-Object { (Test-Path -LiteralPath $_) -and ((Get-Item -LiteralPath $_).Length -gt 0) }
     $exePath = ($exeCandidates | Where-Object { $_ -match '\\Windows\\System32\\' } | Select-Object -First 1)
     if (-not $exePath) { $exePath = $exeCandidates | Select-Object -First 1 }
+    if (-not $exePath) {
+        throw "No usable notepad.exe found, the classic Notepad seems to be removed from this system."
+    }
 
     $exeDir  = Split-Path $exePath -Parent
     $exeName = Split-Path $exePath -Leaf
@@ -252,16 +257,20 @@ function Add-NotepadToSandbox {
         }
     }
 
-    if (-not $muiPath) {
-        throw "Could not locate notepad.exe.mui for $exePath. On some systems Notepad is a Store app without a classic MUI."
-    }
-
     # Stage payload on host: System32\notepad.exe and System32\<lang>\notepad.exe.mui
+    # The .mui only holds the localized strings, notepad also runs without it, so a missing
+    # one must not cost us the whole payload
     $sys32Out = Join-Path $HostPayloadRoot "System32"
-    $langOut  = Join-Path $sys32Out $resolvedLang
-    New-Item -ItemType Directory -Path $langOut -Force | Out-Null
-    Copy-Item -LiteralPath $exePath -Destination (Join-Path $sys32Out $exeName) -Force
-    Copy-Item -LiteralPath $muiPath -Destination (Join-Path $langOut "$exeName.mui") -Force
+    New-Item -ItemType Directory -Path $sys32Out -Force -ErrorAction Stop | Out-Null
+    Copy-Item -LiteralPath $exePath -Destination (Join-Path $sys32Out $exeName) -Force -ErrorAction Stop
+
+    if ($muiPath) {
+        $langOut = Join-Path $sys32Out $resolvedLang
+        New-Item -ItemType Directory -Path $langOut -Force -ErrorAction Stop | Out-Null
+        Copy-Item -LiteralPath $muiPath -Destination (Join-Path $langOut "$exeName.mui") -Force -ErrorAction Stop
+    } else {
+        Write-RunLog -Message_Type "WARNING" -Message "No notepad.exe.mui found for $exePath, notepad will be copied without its localized strings"
+    }
 }
 
 function New-WSB {

@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Folders: a left over `OriginalCommand.txt` of a previous run was executed again when sharing a folder (the folder types pass no command)
 - Files in folders containing `[` or `]`: the folder name was taken from the wildcard escaped path and contained backticks, so the file could not be found inside the sandbox
 - Uninstall: `.intunewin` was removed under the wrong path, the HTML entries were not removed at all
+- Registry backup: keys containing a backslash (`SystemFileAssociations\.html`, `Directory\Background`, ...) were exported into a folder that does not exist, so `reg export` failed for exactly those keys. Backups of the same key name in HKCR and HKU also overwrote each other
+- Notepad payload: a missing `notepad.exe.mui` no longer skips the whole payload (only the localized strings are missing then), the 0 byte app execution alias in WindowsApps is not copied any more and failures are logged with their reason
+- `01-Copy-Notepad.ps1` no longer registers "Edit with Notepad" and the .txt association when the host could not stage a notepad.exe, which pointed the association to a file that does not exist inside the sandbox
 ### Added
 - `RunInSandbox.ps1` now writes a log to `%TEMP%\RunInSandbox.log` and shows a message box on errors, instead of failing silently because it is started with `-WindowStyle Hidden`
 - Unsupported/unknown `-Type` values and a missing .wsb file are reported instead of silently doing nothing
