@@ -177,7 +177,8 @@ if ($Add_ZIP -eq $True) {
 
 if (Test-Path -Path $Run_in_Sandbox_Folder) {
     try {
-        Remove-Item $Run_in_Sandbox_Folder -Recurse -Force
+        # Without -ErrorAction Stop the error is not catchable and success is logged anyway
+        Remove-Item $Run_in_Sandbox_Folder -Recurse -Force -ErrorAction Stop
         Write-LogMessage -Message_Type "Success" -Message "Run-in-Sandbox has been removed"
     } catch {
         Write-LogMessage -Message_Type "ERROR" -Message "Run-in-Sandbox Folder couldnt be removed"

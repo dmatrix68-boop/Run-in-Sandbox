@@ -722,11 +722,26 @@ do {
 } while (Get-Process -Name "WindowsSandboxServer" -ErrorAction SilentlyContinue)
 
 if ($WSB_Cleanup -eq $True) {
-    Remove-Item -LiteralPath $Sandbox_File_Path -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $Intunewin_Command_File -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $Intunewin_Content_File -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $EXE_Command_File -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath "$Run_in_Sandbox_Folder\App_Bundle.sdbapp" -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath "$Run_in_Sandbox_Folder\NotepadPayload" -Force -Recurse -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath "$Run_in_Sandbox_Folder\startup-scripts\OriginalCommand.txt" -Force -ErrorAction SilentlyContinue
+    # Most of these variables are only set by one of the types, for every other type they are
+    # $null. Passing $null to -LiteralPath is a parameter binding error, and that one is
+    # terminating and NOT suppressed by -ErrorAction SilentlyContinue, so empty entries have to
+    # be skipped - otherwise the script dies here at the end of every single run
+    $Files_to_Cleanup = @(
+        $Sandbox_File_Path
+        $Intunewin_Command_File
+        $Intunewin_Content_File
+        $EXE_Command_File
+        "$Run_in_Sandbox_Folder\App_Bundle.sdbapp"
+        "$Run_in_Sandbox_Folder\NotepadPayload"
+        "$Run_in_Sandbox_Folder\startup-scripts\OriginalCommand.txt"
+    )
+
+    ForEach ($File_to_Cleanup in $Files_to_Cleanup) {
+        if ( [string]::IsNullOrEmpty($File_to_Cleanup) ) {
+            continue
+        }
+        Remove-Item -LiteralPath $File_to_Cleanup -Force -Recurse -ErrorAction SilentlyContinue
+    }
 }
+
+Write-RunLog -Message_Type "INFO" -Message "Finished"

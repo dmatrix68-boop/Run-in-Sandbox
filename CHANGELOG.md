@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Uninstall: `.intunewin` was removed under the wrong path, the HTML entries were not removed at all
 - Registry backup: keys containing a backslash (`SystemFileAssociations\.html`, `Directory\Background`, ...) were exported into a folder that does not exist, so `reg export` failed for exactly those keys. Backups of the same key name in HKCR and HKU also overwrote each other
 - Notepad payload: a missing `notepad.exe.mui` no longer skips the whole payload (only the localized strings are missing then), the 0 byte app execution alias in WindowsApps is not copied any more and failures are logged with their reason
+- Cleanup after the sandbox was closed crashed at the end of **every** run: `$Intunewin_Command_File`, `$Intunewin_Content_File` and `$EXE_Command_File` are only set by their own type, and `Remove-Item -LiteralPath $null` is a parameter binding error - which is terminating and not suppressed by `-ErrorAction SilentlyContinue`. The .wsb file was never deleted either
+- Uninstall reported "Run-in-Sandbox has been removed" even when the folder could not be deleted, because `Remove-Item` without `-ErrorAction Stop` never reaches the catch block
 - `01-Copy-Notepad.ps1` no longer registers "Edit with Notepad" and the .txt association when the host could not stage a notepad.exe, which pointed the association to a file that does not exist inside the sandbox
 ### Added
 - `RunInSandbox.ps1` now writes a log to `%TEMP%\RunInSandbox.log` and shows a message box on errors, instead of failing silently because it is started with `-WindowStyle Hidden`
