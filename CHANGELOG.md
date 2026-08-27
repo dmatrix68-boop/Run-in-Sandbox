@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 2026-08-24
+### Added
+- The sandbox now uses **Notepad++** from the host when it is installed: the installation folder is mounted read only to `C:\Program Files\Notepad++` (the same way the host installation of 7-Zip is used), and inside the sandbox "Edit with Notepad++", "Open Notepad++" on the folder background and the .txt association are registered. Nothing is copied and no write access to ProgramData is needed. Only when no Notepad++ is found, the classic Notepad is staged as before
 ### Fixed
 - Fixed context menu entries doing nothing at all (no sandbox, no error): `Add-NotepadToSandbox` throws when `notepad.exe` or its `.mui` file cannot be found (e.g. when the classic Notepad has been removed), which aborted `RunInSandbox.ps1` before the .wsb file was even written. Preparing Notepad is optional now and only logs a warning
 - Fixed the registry backup never being written: `Export-RegConfig` returned before exporting anything and used a fixed size array for the already exported keys

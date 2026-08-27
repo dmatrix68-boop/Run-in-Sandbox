@@ -310,14 +310,30 @@ function New-WSB {
         [Array]$AdditionalMappedFolders = @()
     )
     
-    # Prepare Notepad payload
-    # This is an optional convenience only, it must never stop the sandbox from starting.
-    # Add-NotepadToSandbox throws when notepad.exe or its .mui file cannot be found,
-    # which is the case on systems where the classic Notepad has been removed.
-    try {
-        Add-NotepadToSandbox -EnforceEnUsFallback | Out-Null
-    } catch {
-        Write-RunLog -Message_Type "WARNING" -Message "Notepad could not be prepared for the sandbox: $($_.Exception.Message)"
+    # Give the sandbox an editor. Notepad++ from the host is preferred and only mounted
+    # read only, the same way the host installation of 7-Zip is used. Only when there is no
+    # Notepad++ the classic Notepad is staged as a fallback.
+    # Both are optional, neither may stop the sandbox from starting.
+    $NotepadPlusPlus_Path = Find-HostNotepadPlusPlus
+    if ($NotepadPlusPlus_Path) {
+        $NotepadPlusPlus_Folder = Split-Path $NotepadPlusPlus_Path -Parent
+        # Do not map it twice if the file that is opened lies in the Notepad++ folder itself
+        if ($NotepadPlusPlus_Folder -ne $DirectoryName) {
+            $AdditionalMappedFolders += @{
+                HostFolder = $NotepadPlusPlus_Folder
+                SandboxFolder = "C:\Program Files\Notepad++"
+                ReadOnly = "true"
+            }
+        }
+        Write-RunLog -Message_Type "INFO" -Message "Using the Notepad++ installation of the host: $NotepadPlusPlus_Path"
+    } else {
+        # Add-NotepadToSandbox throws when notepad.exe or its .mui file cannot be found,
+        # which is the case on systems where the classic Notepad has been removed
+        try {
+            Add-NotepadToSandbox -EnforceEnUsFallback | Out-Null
+        } catch {
+            Write-RunLog -Message_Type "WARNING" -Message "No Notepad++ found and Notepad could not be prepared either: $($_.Exception.Message)"
+        }
     }
     
     New-Item $Sandbox_File_Path -type file -Force | Out-Null

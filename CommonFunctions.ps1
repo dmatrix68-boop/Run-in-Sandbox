@@ -254,6 +254,63 @@ function Find-Host7Zip {
     return $null
 }
 
+# Function to find a Notepad++ installation on the host system
+function Find-HostNotepadPlusPlus {
+    # Try common installation paths
+    $CommonPaths = @(
+        "${env:ProgramFiles}\Notepad++\notepad++.exe",
+        "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe",
+        "C:\Program Files\Notepad++\notepad++.exe",
+        "C:\Program Files (x86)\Notepad++\notepad++.exe"
+    )
+
+    foreach ($Path in $CommonPaths) {
+        if ( (-not [string]::IsNullOrEmpty($Path)) -and (Test-Path -LiteralPath $Path) ) {
+            return $Path
+        }
+    }
+
+    # Check the registry, this also finds installations on another drive
+    $RegistryPaths = @(
+        "HKLM:\SOFTWARE\Notepad++",
+        "HKLM:\SOFTWARE\WOW6432Node\Notepad++"
+    )
+
+    foreach ($RegistryPath in $RegistryPaths) {
+        try {
+            $Install_Folder = (Get-ItemProperty -Path $RegistryPath -ErrorAction SilentlyContinue)."(default)"
+            if ( (-not [string]::IsNullOrEmpty($Install_Folder)) -and (Test-Path -LiteralPath "$Install_Folder\notepad++.exe") ) {
+                return "$Install_Folder\notepad++.exe"
+            }
+        } catch {}
+    }
+
+    # Check the uninstall entry
+    $UninstallPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++"
+    )
+
+    foreach ($UninstallPath in $UninstallPaths) {
+        try {
+            $Install_Folder = (Get-ItemProperty -Path $UninstallPath -Name "InstallLocation" -ErrorAction SilentlyContinue).InstallLocation
+            if ( (-not [string]::IsNullOrEmpty($Install_Folder)) -and (Test-Path -LiteralPath "$Install_Folder\notepad++.exe") ) {
+                return "$Install_Folder\notepad++.exe"
+            }
+        } catch {}
+    }
+
+    # Check PATH environment variable, this also covers portable installations added to PATH
+    try {
+        $NotepadPlusPlusInPath = Get-Command "notepad++.exe" -ErrorAction SilentlyContinue
+        if ($NotepadPlusPlusInPath) {
+            return $NotepadPlusPlusInPath.Source
+        }
+    } catch {}
+
+    return $null
+}
+
 # Function to get latest 7-Zip download URL from GitHub releases
 function Get-Latest7ZipDownloadUrl {
     try {
