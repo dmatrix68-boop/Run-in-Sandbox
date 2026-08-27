@@ -135,10 +135,20 @@ function Enable-StartupScripts {
     $origCmdFile = Join-Path $StartupScriptsFolder "OriginalCommand.txt"
     if ($OriginalCommand -ne "") {
        # Write the original command into a file
-        Set-Content -LiteralPath $origCmdFile -Value $OriginalCommand -Encoding UTF8 -Force 
+        try {
+            Set-Content -LiteralPath $origCmdFile -Value $OriginalCommand -Encoding UTF8 -Force -ErrorAction Stop
+        } catch {
+            # Without this file nothing would happen inside the sandbox, so do not continue silently
+            throw "The command for the sandbox could not be written to `"$origCmdFile`": $($_.Exception.Message)"
+        }
     } else {
         # Nothing to run, make sure the command of a previous run is not executed again
-        Remove-Item -LiteralPath $origCmdFile -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $origCmdFile) {
+            Remove-Item -LiteralPath $origCmdFile -Force -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $origCmdFile) {
+                Write-RunLog -Message_Type "WARNING" -Message "Could not delete `"$origCmdFile`", the command of the previous run will be executed again"
+            }
+        }
     }
 
     # Orchestrator that runs NN-*.ps1 in lexicographic order, then runs the original command
@@ -197,7 +207,27 @@ if (Test-Path -LiteralPath $origFile) {
 '@
 
     $orchestratorPath = Join-Path $StartupScriptsFolder "_orchestrator.ps1"
-    Set-Content -LiteralPath $orchestratorPath -Value $orchestrator -Encoding UTF8 -Force
+    # The context menu runs WITHOUT elevation, while this file was put there by the installer
+    # (elevated), so overwriting it is denied for a standard user. It only needs to be written
+    # when it is missing or outdated, and if that fails the installed one is just as good
+    $Orchestrator_OnDisk = ""
+    if (Test-Path -LiteralPath $orchestratorPath) {
+        $Orchestrator_OnDisk = Get-Content -LiteralPath $orchestratorPath -Raw -ErrorAction SilentlyContinue
+        if ($null -eq $Orchestrator_OnDisk) {
+            $Orchestrator_OnDisk = ""
+        }
+    }
+
+    if ($Orchestrator_OnDisk.TrimEnd() -ne $orchestrator.TrimEnd()) {
+        try {
+            Set-Content -LiteralPath $orchestratorPath -Value $orchestrator -Encoding UTF8 -Force -ErrorAction Stop
+        } catch {
+            if (-not (Test-Path -LiteralPath $orchestratorPath) ) {
+                throw
+            }
+            Write-RunLog -Message_Type "WARNING" -Message "Could not update `"$orchestratorPath`" ($($_.Exception.Message)), the installed version is used instead"
+        }
+    }
 
     # Return the single Sandbox command that runs the orchestrator
     "C:\Run_in_Sandbox\ServiceUI.exe -Process:explorer.exe C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -sta -WindowStyle Normal -NoProfile -ExecutionPolicy Bypass -NoExit -File `"$Sandbox_Root_Path\$StartupScriptFolderName\_orchestrator.ps1`""
