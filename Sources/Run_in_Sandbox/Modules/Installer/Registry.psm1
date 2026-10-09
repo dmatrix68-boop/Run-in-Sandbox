@@ -451,7 +451,22 @@ function Find-RegistryIconPaths {
     return $matchingPaths
 }
 
+# Returns the ProgID of the users default application for .zip files, if it is not one
+# of the ProgIDs that get their entry anyway (Explorer's CompressedFolder, WinRAR.ZIP)
+function Get-ZipUserChoiceProgId {
+    $ZIP_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice"
+    if (-not (Test-Path -Path $ZIP_UserChoice)) {
+        return $null
+    }
+    $ProgId = (Get-ItemProperty -Path $ZIP_UserChoice -ErrorAction SilentlyContinue).ProgID
+    if ([string]::IsNullOrEmpty($ProgId) -or ($ProgId -in @("CompressedFolder", "WinRAR.ZIP"))) {
+        return $null
+    }
+    return $ProgId
+}
+
 Export-ModuleMember -Function @(
+    'Get-ZipUserChoiceProgId',
     'Export-RegConfig',
     'Add-RegItem',
     'Remove-RegItem',

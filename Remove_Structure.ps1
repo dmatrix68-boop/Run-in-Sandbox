@@ -82,6 +82,9 @@ if ($Add_Folder -eq $True) {
 
 if ($Add_HTML -eq $True) {
     Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.html" -Type "HTML" -Key_Label "Run this web link in Sandbox"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.htm" -Type "HTML" -Key_Label "Run this web link in Sandbox"
+    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.url" -Type "HTML" -Key_Label "Run this URL in Sandbox"
+    # ProgID entries of older versions
     Remove-RegItem -Sub_Reg_Path "MSEdgeHTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
     Remove-RegItem -Sub_Reg_Path "ChromeHTML" -Type "HTML" -Key_Label "Run this web link in Sandbox"
     Remove-RegItem -Sub_Reg_Path "IE.AssocFile.HTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
@@ -192,6 +195,12 @@ if ($Add_ZIP -eq $True) {
     # Only try to remove WinRAR entry if it exists
     if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\WinRAR.ZIP") {
         Remove-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
+    }
+
+    # Entry on the ProgID of the default .zip application (7-Zip, PeaZip, WinZip, ...)
+    $ZIP_UserChoice_ProgId = Get-ZipUserChoiceProgId
+    if ($ZIP_UserChoice_ProgId) {
+        Remove-RegItem -Sub_Reg_Path "$ZIP_UserChoice_ProgId" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
     }
     
     # Only try to remove 7z entries if they exist

@@ -97,11 +97,11 @@ if ($Add_Folder -eq $True) {
 Write-Progress -Activity $Progress_Activity -PercentComplete 35
 
 if ($Add_HTML -eq $True) {
+    # SystemFileAssociations is shown for every default browser. Adding the entry to the
+    # browser ProgIDs (MSEdgeHTM, ChromeHTML, ...) as well would show it twice in the menu
     Add-RegItem -Sub_Reg_Path "SystemFileAssociations\.html" -Type "HTML" -Key_Label "Run this web link in Sandbox"
-    Add-RegItem -Sub_Reg_Path "MSEdgeHTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
-    Add-RegItem -Sub_Reg_Path "ChromeHTML" -Type "HTML" -Key_Label "Run this web link in Sandbox"
-    Add-RegItem -Sub_Reg_Path "IE.AssocFile.HTM" -Type "HTML" -Key_Label "Run this web link in Sandbox"
-    Add-RegItem -Sub_Reg_Path "IE.AssocFile.URL" -Type "HTML" -Key_Label "Run this URL in Sandbox"
+    Add-RegItem -Sub_Reg_Path "SystemFileAssociations\.htm" -Type "HTML" -Key_Label "Run this web link in Sandbox"
+    Add-RegItem -Sub_Reg_Path "SystemFileAssociations\.url" -Type "HTML" -Key_Label "Run this URL in Sandbox"
 }
 Write-Progress -Activity $Progress_Activity -PercentComplete 40
 
@@ -231,6 +231,15 @@ if ($Add_ZIP -eq $True) {
     # Run on ZIP if WinRAR is installed
     if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\WinRAR.ZIP") {
         Add-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
+    }
+
+    # Run on ZIP if another application (7-Zip, PeaZip, WinZip, ...) is the default for .zip
+    # Explorer only shows the entries of the ProgID a file is really associated with,
+    # so the entry has to be added to that ProgID as well
+    $ZIP_UserChoice_ProgId = Get-ZipUserChoiceProgId
+    if ($ZIP_UserChoice_ProgId) {
+        Write-LogMessage -Message_Type "INFO" -Message "Default application for .zip uses the ProgID `"$ZIP_UserChoice_ProgId`""
+        Add-RegItem -Sub_Reg_Path "$ZIP_UserChoice_ProgId" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
     }
     
     # Run on 7z
