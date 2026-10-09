@@ -133,24 +133,39 @@ function Install-PackageArchive {
     [CmdletBinding()]
     param([string]$EffectiveBranch)
 
-    $zipUrl = "https://github.com/Joly0/Run-in-Sandbox/archive/refs/heads/$EffectiveBranch.zip"
+    $zipUrl = "https://github.com/$Global:Repo_Owner/$Global:Repo_Name/archive/refs/heads/$EffectiveBranch.zip"
     $tempPath = [IO.Path]::GetTempPath()
-    $zipPath = Join-Path $tempPath "Run-in-Sandbox-$EffectiveBranch.zip"
-    $extractPath = Join-Path $tempPath "Run-in-Sandbox-$EffectiveBranch"
-
-    if (Test-Path $extractPath) {
-        Write-Verbose "Removing existing extracted folder..."
-        Remove-Item -Path $extractPath -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    # Branch names may contain "/" (e.g. feature/x)
+    $zipPath = Join-Path $tempPath ("Run-in-Sandbox-{0}.zip" -f ($EffectiveBranch -replace '[\\/]', '-'))
 
     try {
-        Write-Verbose ("Downloading from branch '{0}'..." -f $EffectiveBranch)
+        Write-Verbose ("Downloading from {0}/{1}, branch '{2}'..." -f $Global:Repo_Owner, $Global:Repo_Name, $EffectiveBranch)
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 120
         $ProgressPreference = 'Continue'
         Write-Verbose "Download completed: $zipPath"
     } catch {
         throw "Download failed: $($_.Exception.Message)"
+    }
+
+    # GitHub names the top-level folder of the archive <repo>-<branch> ("/" -> "-"),
+    # so read it from the archive instead of assuming Run-in-Sandbox-<branch>
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zipArchive = [IO.Compression.ZipFile]::OpenRead($zipPath)
+        try {
+            $topFolder = ($zipArchive.Entries[0].FullName -split '/')[0]
+        } finally {
+            $zipArchive.Dispose()
+        }
+    } catch {
+        throw "Extraction failed: $($_.Exception.Message)"
+    }
+    $extractPath = Join-Path $tempPath $topFolder
+
+    if (Test-Path $extractPath) {
+        Write-Verbose "Removing existing extracted folder..."
+        Remove-Item -Path $extractPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     try {

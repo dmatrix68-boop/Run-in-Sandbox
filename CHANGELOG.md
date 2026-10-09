@@ -30,10 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed application bundles (`.sdbapp`) with another file name than `App_Bundle.sdbapp` not being found by `AppBundle_Install.ps1`
 - Fixed the launch failing for standard users when `_orchestrator.ps1` (installed by the elevated installer) could not be overwritten: it is only written when missing or outdated now, and the existing one is used if that fails. A failing write of `OriginalCommand.txt` reports the path instead of starting a sandbox that does nothing
 - Notepad payload: a missing `notepad.exe.mui` no longer skips the whole payload (only the localized strings are missing then), the 0 byte app execution alias in WindowsApps is not copied any more, and `01-Copy-Notepad.ps1` no longer registers "Edit with Notepad" when no notepad.exe was staged
+- Fixed downloads of branches containing `/` (the extracted folder is read from the archive now)
 
 ### Added
 - The sandbox uses **Notepad++** from the host when it is installed: its folder is mounted read only to `C:\Program Files\Notepad++` (like the host installation of 7-Zip), and inside the sandbox "Edit with Notepad++", "Open Notepad++" on the folder background and the .txt association are registered. Only without Notepad++ the classic Notepad is staged
 - `RunInSandbox.ps1` writes its log to `%TEMP%\RunInSandbox.log` and shows a message box on errors, unknown `-Type` values and a missing .wsb file, instead of failing silently because it is started with `-WindowStyle Hidden`
+- Added `-RepoOwner` and `-RepoName` parameters to `Install_Run-in-Sandbox.ps1` to install from a fork. The repository is stored in `version.json`, so updates stay on it; default is still `Joly0/Run-in-Sandbox`
 
 
 ## 2026-08-07
