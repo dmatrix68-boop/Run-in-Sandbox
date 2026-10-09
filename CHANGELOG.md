@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 2026-10-09
+### Fixed
+- Fixed `Remove_Structure.ps1` not removing the `.img` context menu added in 2026-08-07
+- Fixed installation aborting when `HKCU\Software\Classes\.msix` exists without an `OpenWithProgids` subkey, and MSIX entries being written to a wrong key when more than one ProgID is registered
+- Fixed "Extract ISO file in Sandbox" pointing the sandbox to the host path of the cached 7-Zip installer (only used when 7-Zip is not installed on the host)
+- Fixed the "Failed to download 7-Zip installer" message never being shown when the download failed and no cached installer existed
+- Fixed the sandbox not starting at all when no classic `notepad.exe.mui` can be found (the Notepad payload is optional now)
+- Fixed application bundles (`.sdbapp`) not finding their files: folders are now mapped to `C:\SBDApp\<folder name>` as expected by `AppBundle_Install.ps1`; `.ps1`/`.vbs` paths with spaces and a missing `Silent_Switch` element are handled
+- Fixed files in folders with `[` or `]` in their name being started from a wrong path in the sandbox
+- Fixed the installer always using `master` for updates instead of the installed branch when `-Branch` is not given
+- Fixed deep-clean updates deleting custom startup scripts and the just created backup folder
+- Fixed update creating nested empty folders (e.g. `Modules\Shared\Shared`)
+- Fixed deep-clean possibly scanning the wrong user's `HKCU_Classes` hive
+- Fixed the Windows Sandbox feature check never reaching its fallback when `Get-WindowsOptionalFeature` fails, and the disk space check assuming drive `C:`
+- Fixed `RunInSandbox_Config.ps1` (`Add_Structure.ps1 -NoSilent`) failing to load its assemblies and XAML when started from another folder
+- Fixed `Remove_Structure.ps1` reporting success although the installation folder could not be removed
+
+
 ## 2026-08-07
 ### Added
 - Added .img file to "Run X in Sandbox"-options
