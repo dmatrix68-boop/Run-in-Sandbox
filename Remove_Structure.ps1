@@ -1,12 +1,29 @@
-﻿param (
+﻿[CmdletBinding()]
+param (
     [Switch]$DeepClean
 )
 
 $Current_Folder = $PSScriptRoot
 
-Unblock-File -Path $Current_Folder\CommonFunctions.ps1
-. "$Current_Folder\CommonFunctions.ps1"
+# Import modules for installer functionality
+$ModulesPath = "$Current_Folder\Sources\Run_in_Sandbox\Modules"
+if (Test-Path $ModulesPath) {
+    # Import shared modules first (Environment provides global variables)
+    Import-Module "$ModulesPath\Shared\Environment.psm1" -Force -Global
+    Import-Module "$ModulesPath\Shared\Logging.psm1" -Force -Global
+    Import-Module "$ModulesPath\Shared\Config.psm1" -Force -Global
+    # Import installer modules
+    Import-Module "$ModulesPath\Installer\Registry.psm1" -Force -Global
+    Import-Module "$ModulesPath\Installer\Validation.psm1" -Force -Global
+} else {
+    Write-Host "ERROR: Modules folder not found at $ModulesPath" -ForegroundColor Red
+    exit 1
+}
 
+# Set global variable for DeepClean mode (used by Registry module)
+if ($DeepClean) {
+    $Global:DeepClean = $true
+}
 
 Test-ForSandboxFolder
 Test-ForAdmin
@@ -81,6 +98,7 @@ if ($Add_Intunewin -eq $True) {
 if ($Add_ISO -eq $True) {
     Remove-RegItem -Sub_Reg_Path "Windows.IsoFile" -Type "ISO" -Key_Label "Extract ISO file in Sandbox"
     Remove-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path ".iso" -Type "ISO" -Key_Label "Extract ISO file in Sandbox"
+    Remove-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path ".img" -Type "ISO" -Key_Label "Extract IMG file in Sandbox"
 }
 
 if ($Add_MSI -eq $True) {
@@ -88,20 +106,24 @@ if ($Add_MSI -eq $True) {
 }
 
 if ($Add_MSIX -eq $True) {
+    $Removed_MSIX_ProgIds = @()
+    
     $MSIX_Shell_Registry_Key = "Registry::HKEY_CLASSES_ROOT\.msix\OpenWithProgids"
     if (Test-Path -Path $MSIX_Shell_Registry_Key) {
-        $Get_Default_Value = (Get-Item -Path $MSIX_Shell_Registry_Key).Property
-        ForEach ($Prop in $Get_Default_Value) {
-            Remove-RegItem -Sub_Reg_Path "$Prop" -Type "MSIX"
+        ForEach ($ProgId in (Get-Item -Path $MSIX_Shell_Registry_Key).Property) {
+            Remove-RegItem -Sub_Reg_Path "$ProgId" -Type "MSIX"
+            $Removed_MSIX_ProgIds += $ProgId
         }
     }
-    $Default_MSIX_HKCU = "$HKCU_Classes\.msix\OpenWithProgids"
-    if (Test-Path -Path $Default_MSIX_HKCU) {
-        $Get_Default_Value = (Get-Item -Path $Default_MSIX_HKCU).Property
-        ForEach ($Prop in $Get_Default_Value) {
-            Remove-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$Prop" -Type "MSIX"
+    $Default_MSIX_HKCU_ProgIds = "$HKCU_Classes\.msix\OpenWithProgids"
+    if (Test-Path -Path $Default_MSIX_HKCU_ProgIds) {
+        ForEach ($ProgId in (Get-Item -Path $Default_MSIX_HKCU_ProgIds).Property) {
+            # Only remove if this ProgID wasn't already removed from HKCR
+            if ($ProgId -notin $Removed_MSIX_ProgIds) {
+                Remove-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$ProgId" -Type "MSIX"
+            }
         }
-    } 
+    }
 }
 
 if ($Add_MultipleApp -eq $True) {
@@ -123,25 +145,33 @@ if ($Add_PS1 -eq $True) {
     
     if ($Windows_Version -like "*Windows 11*") {
         $Registry_Set = $False
-        if (Test-Path $HKCU_Classes) {
-            $Default_PS1_HKCU = "$HKCU_Classes\.ps1"
-            
-            $OpenWithProgids_Key = "$Default_PS1_HKCU\OpenWithProgids"
-            if (Test-Path $OpenWithProgids_Key) {
-                $Get_OpenWithProgids_Default_Value = (Get-Item $OpenWithProgids_Key).Property
-                ForEach ($Prop in $Get_OpenWithProgids_Default_Value) {
-                    Remove-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path "$Prop" -Type "PS1"
-                }
-                $Registry_Set = $True
-            }
+        try {
+            if (Test-Path $HKCU_Classes) {
+                $Default_PS1_HKCU = "$HKCU_Classes\.ps1"
 
-            $PS1_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ps1\UserChoice"
-            if (Test-Path -Path $PS1_UserChoice) {
-                $Get_UserChoice = (Get-ItemProperty $PS1_UserChoice).ProgID
-                $HKCR_UserChoice_Key = "Registry::HKEY_CLASSES_ROOT\$Get_UserChoice"
-                Remove-RegItem -Sub_Reg_Path "$Get_UserChoice" -Type "PS1"
-                $Registry_Set = $True
+                $OpenWithProgids_Key = "$Default_PS1_HKCU\OpenWithProgids"
+                if (Test-Path $OpenWithProgids_Key) {
+                    $Get_OpenWithProgids_Default_Value = (Get-Item $OpenWithProgids_Key).Property
+                    ForEach ($Prop in $Get_OpenWithProgids_Default_Value) {
+                        Remove-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path "$Prop" -Type "PS1"
+                        $Registry_Set = $True
+                    }
+                }
+
+                # The install side now writes the UserChoice cascade to HKCU_Classes.
+                # Older installs put it under HKCR, so remove from both to cover upgrades.
+                $PS1_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ps1\UserChoice"
+                if (Test-Path -Path $PS1_UserChoice) {
+                    $Get_UserChoice = (Get-ItemProperty $PS1_UserChoice).ProgID
+                    if ($Get_UserChoice) {
+                        Remove-RegItem -Reg_Path "$HKCU_Classes" -Sub_Reg_Path "$Get_UserChoice" -Type "PS1"
+                        Remove-RegItem -Sub_Reg_Path "$Get_UserChoice" -Type "PS1"
+                        $Registry_Set = $True
+                    }
+                }
             }
+        } catch {
+            Write-LogMessage -Message_Type "WARNING" -Message "Failed to remove PS1 registry entries: $($_.Exception.Message)"
         }
         if ($Registry_Set -eq $False) {
             Write-LogMessage -Message_Type "WARNING" -Message "Couldn´t remove the correct registry keys. You probably don´t have any programs selected as default for .ps1 extension!"
@@ -161,23 +191,35 @@ if ($Add_VBS -eq $True) {
 
 if ($Add_ZIP -eq $True) {
     Remove-RegItem -Sub_Reg_Path "CompressedFolder" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
-    Remove-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
-    $ZIP_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice"
-    if (Test-Path -Path $ZIP_UserChoice) {
-        $Get_ZIP_UserChoice = (Get-ItemProperty -Path $ZIP_UserChoice).ProgID
-        if ( (-not [string]::IsNullOrEmpty($Get_ZIP_UserChoice)) -and ($Get_ZIP_UserChoice -notin @("CompressedFolder", "WinRAR.ZIP")) ) {
-            Remove-RegItem -Sub_Reg_Path "$Get_ZIP_UserChoice" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
-        }
+    
+    # Only try to remove WinRAR entry if it exists
+    if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\WinRAR.ZIP") {
+        Remove-RegItem -Sub_Reg_Path "WinRAR.ZIP" -Type "ZIP" -Key_Label "Extract ZIP (WinRAR) in Sandbox"
     }
-    Remove-RegItem -Sub_Reg_Path "Applications\7zFM.exe" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
-    Remove-RegItem -Sub_Reg_Path "7-Zip.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
-    Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
-    Remove-RegItem -Sub_Reg_Path "7-Zip.rar" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract RAR file in Sandbox"
+
+    # Entry on the ProgID of the default .zip application (7-Zip, PeaZip, WinZip, ...)
+    $ZIP_UserChoice_ProgId = Get-ZipUserChoiceProgId
+    if ($ZIP_UserChoice_ProgId) {
+        Remove-RegItem -Sub_Reg_Path "$ZIP_UserChoice_ProgId" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
+    }
+    
+    # Only try to remove 7z entries if they exist
+    if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\Applications\7zFM.exe") {
+        Remove-RegItem -Sub_Reg_Path "Applications\7zFM.exe" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
+    }
+    if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\7-Zip.7z") {
+        Remove-RegItem -Sub_Reg_Path "7-Zip.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
+    }
+    if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\SystemFileAssociations\.7z") {
+        Remove-RegItem -Sub_Reg_Path "SystemFileAssociations\.7z" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract 7z file in Sandbox"
+    }
+    if (Test-Path -Path "Registry::HKEY_CLASSES_ROOT\7-Zip.rar") {
+        Remove-RegItem -Sub_Reg_Path "7-Zip.rar" -Type "7z" -Info_Type "7z" -Entry_Name "ZIP" -Key_Label "Extract RAR file in Sandbox"
+    }
 }
 
 if (Test-Path -Path $Run_in_Sandbox_Folder) {
     try {
-        # Without -ErrorAction Stop the error is not catchable and success is logged anyway
         Remove-Item $Run_in_Sandbox_Folder -Recurse -Force -ErrorAction Stop
         Write-LogMessage -Message_Type "Success" -Message "Run-in-Sandbox has been removed"
     } catch {

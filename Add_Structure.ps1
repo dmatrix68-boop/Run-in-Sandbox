@@ -124,19 +124,18 @@ if ($Add_MSI -eq $True) {
 Write-Progress -Activity $Progress_Activity -PercentComplete 55
 
 if ($Add_MSIX -eq $True) {
-    # .msix can be registered for more than one ProgID, every one of them needs its own entry
     $MSIX_Shell_Registry_Key = "Registry::HKEY_CLASSES_ROOT\.msix\OpenWithProgids"
     if (Test-Path -Path $MSIX_Shell_Registry_Key) {
-        $Get_Default_Value = (Get-Item -Path $MSIX_Shell_Registry_Key).Property
-        ForEach ($Prop in $Get_Default_Value) {
-            Add-RegItem -Sub_Reg_Path "$Prop" -Type "MSIX"
+        ForEach ($ProgId in (Get-Item -Path $MSIX_Shell_Registry_Key).Property) {
+            Add-RegItem -Sub_Reg_Path "$ProgId" -Type "MSIX"
         }
     }
-    $Default_MSIX_HKCU = "$HKCU_Classes\.msix\OpenWithProgids"
-    if (Test-Path -Path $Default_MSIX_HKCU) {
-        $Get_Default_Value = (Get-Item -Path $Default_MSIX_HKCU).Property
-        ForEach ($Prop in $Get_Default_Value) {
-            Add-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$Prop" -Type "MSIX"
+    # Test the OpenWithProgids key itself - with ErrorActionPreference 'Stop' a
+    # missing subkey would otherwise abort the whole installation
+    $Default_MSIX_HKCU_ProgIds = "$HKCU_Classes\.msix\OpenWithProgids"
+    if (Test-Path -Path $Default_MSIX_HKCU_ProgIds) {
+        ForEach ($ProgId in (Get-Item -Path $Default_MSIX_HKCU_ProgIds).Property) {
+            Add-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$ProgId" -Type "MSIX"
         }
     }
 }
@@ -237,14 +236,10 @@ if ($Add_ZIP -eq $True) {
     # Run on ZIP if another application (7-Zip, PeaZip, WinZip, ...) is the default for .zip
     # Explorer only shows the entries of the ProgID a file is really associated with,
     # so the entry has to be added to that ProgID as well
-    # The userchoice for ZIP is located in: HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice
-    $ZIP_UserChoice = "$HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.zip\UserChoice"
-    if (Test-Path -Path $ZIP_UserChoice) {
-        $Get_ZIP_UserChoice = (Get-ItemProperty -Path $ZIP_UserChoice).ProgID
-        if ( (-not [string]::IsNullOrEmpty($Get_ZIP_UserChoice)) -and ($Get_ZIP_UserChoice -notin @("CompressedFolder", "WinRAR.ZIP")) ) {
-            Write-LogMessage -Message_Type "INFO" -Message "Default application for .zip uses the ProgID `"$Get_ZIP_UserChoice`""
-            Add-RegItem -Sub_Reg_Path "$Get_ZIP_UserChoice" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
-        }
+    $ZIP_UserChoice_ProgId = Get-ZipUserChoiceProgId
+    if ($ZIP_UserChoice_ProgId) {
+        Write-LogMessage -Message_Type "INFO" -Message "Default application for .zip uses the ProgID `"$ZIP_UserChoice_ProgId`""
+        Add-RegItem -Sub_Reg_Path "$ZIP_UserChoice_ProgId" -Type "ZIP" -Key_Label "Extract ZIP in Sandbox"
     }
     
     # Run on 7z
