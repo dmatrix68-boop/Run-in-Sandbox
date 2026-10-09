@@ -30,9 +30,40 @@ All the steps need to be executed from the Host, not inside the Sandbox
 ### <mark>__Method 1 - PowerShell (Recommended)__</mark>
 -   Right-click on the Windows start menu and select PowerShell or Terminal (Not CMD), preferably as admin.
 -   Copy and paste the code below and press enter:
+
+#### **Install from master branch (stable):**
 ```powershell
 irm https://raw.githubusercontent.com/Joly0/Run-in-Sandbox/master/Install_Run-in-Sandbox.ps1 | iex
 ```
+
+#### **Install from a specific branch (e.g., dev):**
+```powershell
+iex "& { $(irm https://raw.githubusercontent.com/Joly0/Run-in-Sandbox/master/Install_Run-in-Sandbox.ps1) } -Branch dev"
+```
+
+Replace `dev` with your desired branch name (e.g., `beta`, `test`, etc.)
+
+#### **Additional installer parameters:**
+The installer supports the following optional parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `-Branch <name>` | Install from a specific branch (default: `master`, or your currently installed branch for updates) |
+| `-DeepClean` | Performs a deep-clean of legacy registry entries before installation. Removes old context menu entries (takes 5-10 minutes) |
+| `-NoCheckpoint` | Skips creation of a system restore point during installation |
+
+**Examples:**
+```powershell
+# Install from dev branch with deep-clean
+iex "& { $(irm https://raw.githubusercontent.com/Joly0/Run-in-Sandbox/master/Install_Run-in-Sandbox.ps1) } -Branch dev -DeepClean"
+
+# Install without creating a restore point
+iex "& { $(irm https://raw.githubusercontent.com/Joly0/Run-in-Sandbox/master/Install_Run-in-Sandbox.ps1) } -NoCheckpoint"
+
+# Combine multiple parameters
+iex "& { $(irm https://raw.githubusercontent.com/Joly0/Run-in-Sandbox/master/Install_Run-in-Sandbox.ps1) } -Branch dev -DeepClean -NoCheckpoint"
+```
+
 -   You will see the process being started. You will probably be asked to grant admin rights if not started as admin.
 -   That's all.
 
@@ -53,6 +84,26 @@ This method allows you to use the parameters "-NoCheckpoint" to skip creation of
 - Once you have downloaded the folder structure, **check if files have not be blocked after download**
 - Do a right-click on Add_Structure.ps1 and check if needed check Unblocked
 - Run Add_Structure.ps1 **with admin rights**
+<br/>
+
+## Running with AppLocker / security baselines
+
+If you are running a hardened Windows install (for example the [OpenIntuneBaseline](https://github.com/SkipToTheEndpoint/OpenIntuneBaseline) or any other configuration that ships AppLocker script rules), Run-in-Sandbox will run into two related problems:
+- Some of the scripts under `C:\ProgramData\Run_in_Sandbox\` get blocked outright (you will see them in the AppLocker event log)
+- The ones that are not blocked get forced into **ConstrainedLanguage** mode, which breaks the WPF/MahApps dialogs (Intunewin, EXE params, etc.) and can cause errors like `Cannot dot-source this command because it was defined in a different language mode`
+
+Thanks to [@ak47uk](https://github.com/ak47uk) for tracking this down. The fix is to whitelist the install folder in AppLocker's Scripts collection. Add the following rule to your `Scripts.xml`:
+
+```xml
+<FilePathRule Id="e23de120-6c05-455a-b585-72939a592234" Name="Run In Sandbox" Description="Whitelists Run In Sandbox scripts" UserOrGroupSid="S-1-1-0" Action="Allow">
+  <Conditions>
+    <FilePathCondition Path="C:\PROGRAMDATA\RUN_IN_SANDBOX\*" />
+  </Conditions>
+</FilePathRule>
+```
+
+After deploying the updated AppLocker policy, the scripts run in `FullLanguage` mode again and the context menus / dialogs behave normally.
+<br/>
 <br/>
 
 ## Star History
