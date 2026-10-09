@@ -37,8 +37,13 @@ function New-WSB {
     $Sandbox_ClipboardRedirection = $my_xml.Configuration.ClipboardRedirection
     $Sandbox_MemoryInMB = $my_xml.Configuration.MemoryInMB
     
-    # Prepare Notepad payload
-    Add-NotepadToSandbox -EnforceEnUsFallback
+    # Prepare Notepad payload. This is optional - a missing classic notepad.exe.mui
+    # (Store Notepad) must not prevent the sandbox from starting
+    try {
+        Add-NotepadToSandbox -EnforceEnUsFallback
+    } catch {
+        Write-Warning "Notepad payload could not be prepared: $($_.Exception.Message)"
+    }
     
     if ($Sandbox_WSB_Location -eq "Default") {
         $Sandbox_File_Path = "$env:temp\$FileName.wsb"
@@ -80,7 +85,8 @@ function New-WSB {
             Get-ChildItem -LiteralPath $App_Path -Recurse | Unblock-File
             Add-Content -LiteralPath $Sandbox_File_Path -Value "        <MappedFolder>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "            <HostFolder>$App_Path</HostFolder>"
-            Add-Content -LiteralPath $Sandbox_File_Path -Value "            <SandboxFolder>C:\SBDApp</SandboxFolder>"
+            # AppBundle_Install.ps1 expects each app under C:\SBDApp\<last folder of Path>
+            Add-Content -LiteralPath $Sandbox_File_Path -Value "            <SandboxFolder>C:\SBDApp\$($App_Path.Split('\')[-1])</SandboxFolder>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "            <ReadOnly>$Sandbox_ReadOnlyAccess</ReadOnly>"
             Add-Content -LiteralPath $Sandbox_File_Path -Value "        </MappedFolder>"
         }

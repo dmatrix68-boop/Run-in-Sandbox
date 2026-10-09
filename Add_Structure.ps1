@@ -126,16 +126,16 @@ Write-Progress -Activity $Progress_Activity -PercentComplete 55
 if ($Add_MSIX -eq $True) {
     $MSIX_Shell_Registry_Key = "Registry::HKEY_CLASSES_ROOT\.msix\OpenWithProgids"
     if (Test-Path -Path $MSIX_Shell_Registry_Key) {
-        $Get_Default_Value = (Get-Item -Path $MSIX_Shell_Registry_Key).Property
-        if ($Get_Default_Value) {
-            Add-RegItem -Sub_Reg_Path "$Get_Default_Value" -Type "MSIX"
-        } 
+        ForEach ($ProgId in (Get-Item -Path $MSIX_Shell_Registry_Key).Property) {
+            Add-RegItem -Sub_Reg_Path "$ProgId" -Type "MSIX"
+        }
     }
-    $Default_MSIX_HKCU = "$HKCU_Classes\.msix"
-    if (Test-Path -Path $Default_MSIX_HKCU) {
-        $Get_Default_Value = (Get-Item -Path "$Default_MSIX_HKCU\OpenWithProgids").Property
-        if ($Get_Default_Value) {
-            Add-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$Get_Default_Value" -Type "MSIX"
+    # Test the OpenWithProgids key itself - with ErrorActionPreference 'Stop' a
+    # missing subkey would otherwise abort the whole installation
+    $Default_MSIX_HKCU_ProgIds = "$HKCU_Classes\.msix\OpenWithProgids"
+    if (Test-Path -Path $Default_MSIX_HKCU_ProgIds) {
+        ForEach ($ProgId in (Get-Item -Path $Default_MSIX_HKCU_ProgIds).Property) {
+            Add-RegItem -Reg_Path $HKCU_Classes -Sub_Reg_Path "$ProgId" -Type "MSIX"
         }
     }
 }

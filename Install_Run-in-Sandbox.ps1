@@ -33,7 +33,7 @@
 param (
     [switch]$NoCheckpoint,
     [switch]$DeepClean,
-    [string]$Branch = "master",
+    [string]$Branch,
     [string]$OriginalUserSid
 )
 
@@ -68,6 +68,20 @@ $RepoName = "Run-in-Sandbox"
 # Globals
 $Run_in_Sandbox_Folder = "$env:ProgramData\Run_in_Sandbox"
 $IsInstalled = Test-Path $Run_in_Sandbox_Folder
+
+# Without -Branch, updates stay on the installed branch (version.json), new
+# installs use master. Resolved here already because the modules below are
+# downloaded from that branch.
+if (-not $Branch) {
+    $Branch = "master"
+    $InstalledVersionJson = Join-Path $Run_in_Sandbox_Folder "version.json"
+    if (Test-Path $InstalledVersionJson) {
+        try {
+            $InstalledBranchName = (Get-Content $InstalledVersionJson -Raw | ConvertFrom-Json).branch
+            if ($InstalledBranchName) { $Branch = $InstalledBranchName }
+        } catch { }
+    }
+}
 
 # ======================================================================================
 # Function to dynamically load modules from GitHub
@@ -269,9 +283,9 @@ try {
     }
     Update-CoreFiles @syncParams
     
-    if ($IsInstalled) {
-        Restore-CustomStartupScripts -RunFolder $Run_in_Sandbox_Folder
-    }
+    # Not tied to $IsInstalled: a deep-clean resets that flag, but is exactly the
+    # case where custom startup scripts were backed up (no-op otherwise)
+    Restore-CustomStartupScripts -RunFolder $Run_in_Sandbox_Folder
     Get-VersionJson -RunFolder $Run_in_Sandbox_Folder -ExtractPath $extractPath -EffectiveBranch $Branch -LatestVersion $LatestVersion
 
     $valid = Test-Installation -RunFolder $Run_in_Sandbox_Folder

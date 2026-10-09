@@ -22,8 +22,9 @@ $ScriptPath = [WildcardPattern]::Escape($ScriptPath)
 if ( ($Type -eq "Folder_Inside") -or ($Type -eq "Folder_On") ) {
     $DirectoryName = (Get-Item $ScriptPath).fullname
 } else {
-    $ParentPath = Split-Path -Path "$ScriptPath" -Parent
-    $FolderPath = Split-Path -Path "$ParentPath" -Leaf
+    # Take the folder name from the resolved item - $ScriptPath is wildcard-escaped,
+    # so Split-Path would keep the escape backticks for folders like "Setup [x64]"
+    $FolderPath = (Get-Item $ScriptPath).Directory.Name
     $DirectoryName = (Get-Item $ScriptPath).DirectoryName
     $FileName = (Get-Item $ScriptPath).BaseName
     $Full_FileName = (Get-Item $ScriptPath).Name
@@ -192,7 +193,7 @@ switch ($Type) {
                 EXIT
             }
 
-            $CachedInstaller = "$Run_in_Sandbox_Folder\temp\7zSetup.msi"
+            $CachedInstaller = "$Sandbox_Root_Path\temp\7zSetup.msi"
 
             # Install 7-Zip in sandbox then extract ISO
             $Startup_Command = "$PSRun_Command `"Start-Process -FilePath 'msiexec.exe' -ArgumentList '/i \`"$CachedInstaller\`" /quiet' -Wait; Start-Process -FilePath 'C:\Program Files\7-Zip\7z.exe' -ArgumentList 'x $Full_Startup_Path_Quoted -y -oC:\Users\WDAGUtilityAccount\Desktop\Extracted_ISO' -Wait`""
