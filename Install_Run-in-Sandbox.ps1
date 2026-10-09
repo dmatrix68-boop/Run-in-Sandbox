@@ -150,34 +150,23 @@ function Import-ModuleFromGitHub {
 # ======================================================================================
 # Load required modules from GitHub
 # ======================================================================================
-$moduleLoadSuccess = $true
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Shared/Logging.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Shared/Version.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Shared/Environment.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Shared/Config.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Installer/Core.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Installer/Registry.psm1" -BranchName $Branch)
-$moduleLoadSuccess = $moduleLoadSuccess -and (Import-ModuleFromGitHub -ModulePath "Sources/Run_in_Sandbox/Modules/Installer/Validation.psm1" -BranchName $Branch)
-
-if (-not $moduleLoadSuccess) {
-    Write-Host "Failed to load modules from GitHub. This might be due to network issues or an invalid branch." -ForegroundColor Red
-    Write-Host "Falling back to CommonFunctions.ps1..." -ForegroundColor Yellow
-    
-    # Fallback to CommonFunctions.ps1
-    try {
-        $commonFunctionsUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/CommonFunctions.ps1"
-        Write-Verbose ("Loading CommonFunctions from: {0}" -f $commonFunctionsUrl)
-        $commonFunctionsContent = Invoke-RestMethod -Uri $commonFunctionsUrl -UseBasicParsing -TimeoutSec 45
-        . ([ScriptBlock]::Create($commonFunctionsContent)) # dot-source into script scope
-        Write-Verbose "CommonFunctions loaded from GitHub."
-    } catch {
-        $localCommonFunctionsPath = Join-Path $Run_in_Sandbox_Folder "CommonFunctions.ps1"
-        if (Test-Path $localCommonFunctionsPath) {
-            . $localCommonFunctionsPath
-            Write-Verbose "CommonFunctions loaded from local path."
-        } else {
-            throw "CommonFunctions.ps1 could not be loaded."
-        }
+$requiredModules = @(
+    "Sources/Run_in_Sandbox/Modules/Shared/Logging.psm1",
+    "Sources/Run_in_Sandbox/Modules/Shared/Version.psm1",
+    "Sources/Run_in_Sandbox/Modules/Shared/Environment.psm1",
+    "Sources/Run_in_Sandbox/Modules/Shared/Config.psm1",
+    "Sources/Run_in_Sandbox/Modules/Installer/Core.psm1",
+    "Sources/Run_in_Sandbox/Modules/Installer/Registry.psm1",
+    "Sources/Run_in_Sandbox/Modules/Installer/Validation.psm1"
+)
+foreach ($modulePath in $requiredModules) {
+    if (-not (Import-ModuleFromGitHub -ModulePath $modulePath -BranchName $Branch)) {
+        # No fallback: CommonFunctions.ps1 lacks most installer functions, and
+        # the package itself is downloaded from GitHub further below anyway
+        Write-Host "Failed to load $modulePath from $RepoOwner/$RepoName (branch '$Branch')." -ForegroundColor Red
+        Write-Host "Check your internet connection and that the repository and branch exist. Run with -Verbose for details." -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        break script
     }
 }
 
