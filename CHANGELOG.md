@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the Windows Sandbox feature check never reaching its fallback when `Get-WindowsOptionalFeature` fails, and the disk space check assuming drive `C:`
 - Fixed `RunInSandbox_Config.ps1` (`Add_Structure.ps1 -NoSilent`) failing to load its assemblies and XAML when started from another folder
 - Fixed `Remove_Structure.ps1` reporting success although the installation folder could not be removed
+- Fixed the registry backup (`Registry_Backup` folder) never being created: `Export-RegConfig` returned before exporting anything. Each modified key is now exported once, before the first change, and an existing backup is kept on updates
+- Fixed the installer silently "falling back" to `CommonFunctions.ps1` when a module could not be downloaded, which then failed with unrelated errors. It now names the module that failed and exits
+- Fixed downloads of branches containing `/` and of repositories not named `Run-in-Sandbox`
+
+### Added
+- Added `-RepoOwner` and `-RepoName` parameters to `Install_Run-in-Sandbox.ps1` to install from a fork. The repository is stored in `version.json`, so updates stay on it; default is still `Joly0/Run-in-Sandbox`
 
 
 ## 2026-08-07
