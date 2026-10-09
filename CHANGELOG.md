@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the Windows Sandbox feature check never reaching its fallback when `Get-WindowsOptionalFeature` fails, and the disk space check assuming drive `C:`
 - Fixed `RunInSandbox_Config.ps1` (`Add_Structure.ps1 -NoSilent`) failing to load its assemblies and XAML when started from another folder
 - Fixed `Remove_Structure.ps1` reporting success although the installation folder could not be removed
+- Fixed the registry backup (`Registry_Backup` folder) never being created: `Export-RegConfig` returned before exporting anything. Each modified key is now exported once, before the first change, keys containing `\` no longer point into a folder that does not exist, HKCR and HKU backups of the same key no longer overwrite each other, and an existing backup is kept on updates
 
 
 ## 2026-08-07
