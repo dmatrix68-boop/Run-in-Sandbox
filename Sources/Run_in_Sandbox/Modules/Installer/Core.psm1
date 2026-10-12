@@ -132,12 +132,12 @@ function Install-PackageArchive {
     [CmdletBinding()]
     param([string]$EffectiveBranch)
 
-    $zipUrl = "https://github.com/Joly0/Run-in-Sandbox/archive/refs/heads/$EffectiveBranch.zip"
+    $zipUrl = "https://github.com/$Global:Repo_Owner/$Global:Repo_Name/archive/refs/heads/$EffectiveBranch.zip"
     $tempPath = [IO.Path]::GetTempPath()
     $zipPath = Join-Path $tempPath ("Run-in-Sandbox-{0}.zip" -f ($EffectiveBranch -replace '[\\/]', '-'))
 
     try {
-        Write-Verbose ("Downloading from branch '{0}'..." -f $EffectiveBranch)
+        Write-Verbose ("Downloading from {0}/{1}, branch '{2}'..." -f $Global:Repo_Owner, $Global:Repo_Name, $EffectiveBranch)
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 120
         $ProgressPreference = 'Continue'
